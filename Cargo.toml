@@ -9,3 +9,4 @@ cairo-rs = { version = "0.20.7", features = ["png"] }
 harfbuzz_rs = "2.0.1"
 freetype-rs = "*"
 anyhow = "1.0.96"
+clap = { version = "4.5.31", features = ["derive"] }

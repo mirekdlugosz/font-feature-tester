@@ -59,15 +59,18 @@ pub fn draw_text(
     let mut line_offset = line_advance;
 
     for line in text {
-        let shaped_text = HBConfig::shape(hb_config, line.as_str());
+        // to mogłoby być ładniej
+        if ! line.is_empty() {
+            let shaped_text = HBConfig::shape(hb_config, line.as_str());
 
-        draw_single_line(
-            &ft_face,
-            &cr_context,
-            shaped_text.get_glyph_infos(),
-            shaped_text.get_glyph_positions(),
-            line_offset,
-        )?;
+            draw_single_line(
+                &ft_face,
+                &cr_context,
+                shaped_text.get_glyph_infos(),
+                shaped_text.get_glyph_positions(),
+                line_offset,
+            )?;
+        }
         line_offset += line_advance;
     }
 
