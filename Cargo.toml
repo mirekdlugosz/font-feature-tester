@@ -1,0 +1,10 @@
+[package]
+name = "font-feature-tester"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+#wezterm-font = { path = "deps/wezterm-font" }
+cairo-rs = { version = "0.20.7", features = ["png"] }
+harfbuzz_rs = "2.0.1"
+freetype-rs = "*"
