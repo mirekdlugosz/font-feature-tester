@@ -10,6 +10,8 @@ use harfbuzz_rs::{UnicodeBuffer,
     Feature,
     Language,
     Direction,
+    Tag,
+    GlyphBuffer,
     GlyphInfo,
     GlyphPosition,
     shape as hb_shape
@@ -17,7 +19,24 @@ use harfbuzz_rs::{UnicodeBuffer,
 
 pub use constants::{HARFBUZZ_SCALING_FACTOR, SCREEN_DPI, BASE_SCREEN_DPI, DEFAULT_FONT_SIZE};
 
+pub struct HBConfig<'a> {
+    pub hb_font: Owned<HBFont<'a>>,
+    pub font_features: &'a [Feature],
+    pub direction: Direction,
+    pub script: Tag,
+    pub language: Language,
+}
 
+impl HBConfig<'_> {
+    fn shape(hb_config: &Self, text: &str) -> GlyphBuffer {
+        let mut hb_buffer = UnicodeBuffer::new();
+        hb_buffer = hb_buffer.set_direction(hb_config.direction);
+        hb_buffer = hb_buffer.set_script(hb_config.script);
+        hb_buffer = hb_buffer.set_language(hb_config.language);
+        hb_buffer = hb_buffer.add_str(text);
+        hb_shape(&hb_config.hb_font, hb_buffer, hb_config.font_features)
+    }
+}
 
 struct RasterizedGlyph {
     cr_is: ImageSurface,
@@ -27,18 +46,11 @@ struct RasterizedGlyph {
 
 pub fn draw_text(
     ft_face: FTFace,
-    hb_font: Owned<HBFont>,
+    hb_config: &HBConfig,
     cr_context: Context,
     text: &[String],
     output: &mut File,
 ) -> Result<()> {
-    let features = [
-        Feature::new(
-            b"cv14",
-            1,
-            ..
-        ),
-    ];
     let line_height = ft_face.size_metrics().map_or_else(
         || (DEFAULT_FONT_SIZE * 4 / 3) as f64,
         |metrics| metrics.y_ppem as f64
@@ -47,21 +59,13 @@ pub fn draw_text(
     let mut line_offset = line_advance;
 
     for line in text {
-        let mut hb_buffer = UnicodeBuffer::new();
-        hb_buffer = hb_buffer.set_direction(Direction::Ltr);
-        hb_buffer = hb_buffer.set_script(b"Latn".into());
-        hb_buffer = hb_buffer.set_language(Language::default());
-        hb_buffer = hb_buffer.add_str(line.as_str());
-
-        let shaped_text = hb_shape(&hb_font, hb_buffer, &features);
-        let glyph_infos = shaped_text.get_glyph_infos();
-        let glyph_positions = shaped_text.get_glyph_positions();
+        let shaped_text = HBConfig::shape(hb_config, line.as_str());
 
         draw_single_line(
             &ft_face,
             &cr_context,
-            glyph_infos,
-            glyph_positions,
+            shaped_text.get_glyph_infos(),
+            shaped_text.get_glyph_positions(),
             line_offset,
         )?;
         line_offset += line_advance;
