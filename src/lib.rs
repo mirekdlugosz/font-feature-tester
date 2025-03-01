@@ -1,5 +1,8 @@
+mod constants;
+
 use std::fs::File;
 
+use anyhow::{Context as ErrorContext, Result};
 use cairo::{Context, Format, ImageSurface};
 use freetype::{Face as FTFace, face::LoadFlag, RenderMode};
 use harfbuzz_rs::{UnicodeBuffer,
@@ -7,8 +10,20 @@ use harfbuzz_rs::{UnicodeBuffer,
     Feature,
     Language,
     Direction,
+    GlyphInfo,
+    GlyphPosition,
     shape as hb_shape
 };
+
+pub use constants::{HARFBUZZ_SCALING_FACTOR, SCREEN_DPI, BASE_SCREEN_DPI, DEFAULT_FONT_SIZE};
+
+
+
+struct RasterizedGlyph {
+    cr_is: ImageSurface,
+    x_offset: f64,
+    y_offset: f64,
+}
 
 pub fn draw_text(
     ft_face: FTFace,
@@ -16,14 +31,7 @@ pub fn draw_text(
     cr_context: Context,
     text: &[String],
     output: &mut File,
-) -> Result<(), ()> {
-    let mut hb_buffer = UnicodeBuffer::new();
-    hb_buffer = hb_buffer.set_direction(Direction::Ltr);
-    hb_buffer = hb_buffer.set_script(b"Latn".into());
-    hb_buffer = hb_buffer.set_language(Language::default());
-
-    hb_buffer = hb_buffer.add_str(text.first().unwrap().as_str());
-
+) -> Result<()> {
     let features = [
         Feature::new(
             b"cv14",
@@ -31,20 +39,75 @@ pub fn draw_text(
             ..
         ),
     ];
+    let line_height = ft_face.size_metrics().map_or_else(
+        || (DEFAULT_FONT_SIZE * 4 / 3) as f64,
+        |metrics| metrics.y_ppem as f64
+    );
+    let line_advance = line_height * 1.5;
+    let mut line_offset = line_advance;
 
-    let shaped_text = hb_shape(&hb_font, hb_buffer, &features);
+    for line in text {
+        let mut hb_buffer = UnicodeBuffer::new();
+        hb_buffer = hb_buffer.set_direction(Direction::Ltr);
+        hb_buffer = hb_buffer.set_script(b"Latn".into());
+        hb_buffer = hb_buffer.set_language(Language::default());
+        hb_buffer = hb_buffer.add_str(line.as_str());
 
-    let glyph_infos = shaped_text.get_glyph_infos();
-    let glyph_positions = shaped_text.get_glyph_positions();
+        let shaped_text = hb_shape(&hb_font, hb_buffer, &features);
+        let glyph_infos = shaped_text.get_glyph_infos();
+        let glyph_positions = shaped_text.get_glyph_positions();
 
+        draw_single_line(
+            &ft_face,
+            &cr_context,
+            glyph_infos,
+            glyph_positions,
+            line_offset,
+        )?;
+        line_offset += line_advance;
+    }
+
+    // Save the image as PNG
+    cr_context.target().write_to_png(output)?;
+    Ok(())
+}
+
+fn draw_single_line(
+    ft_face: &FTFace,
+    cr_context: &Context,
+    glyph_infos: &[GlyphInfo],
+    glyph_positions: &[GlyphPosition],
+    line_offset: f64,
+) -> Result<()> {
+    let dpi_factor = SCREEN_DPI / BASE_SCREEN_DPI;
     let mut next_pos: f64 = 0.0;
 
     for (position, info) in glyph_positions.iter().zip(glyph_infos) {
+        let rasterized = rasterize_glyph(ft_face, info.codepoint as u32)?;
+
+        // We told FreeType to assume specific DPI, but HarfBuzz and Cairo do not know about it.
+        // We could use Cairo set_device_scale, but then we would need to change bitmap_* values,
+        // to avoid double-scaling. Also, device_scale seems to blurry the fonts in barely
+        // noticeable way, but I may be imagining things.
+        cr_context.mask_surface(
+            rasterized.cr_is,
+            next_pos + rasterized.x_offset,
+            line_offset - ((position.y_advance as f64) / HARFBUZZ_SCALING_FACTOR * dpi_factor + rasterized.y_offset)
+        )?;
+        next_pos += position.x_advance as f64 / HARFBUZZ_SCALING_FACTOR * dpi_factor;
+    }
+    Ok(())
+}
+
+fn rasterize_glyph(
+    ft_face: &FTFace,
+    codepoint: u32,
+) -> Result<RasterizedGlyph> {
         //let glyph_name = hb_font.get_glyph_name(info.codepoint as u32).unwrap_or("unknown".to_string());
 
-        let _ = ft_face.load_glyph(info.codepoint as u32, LoadFlag::DEFAULT);
+        ft_face.load_glyph(codepoint, LoadFlag::DEFAULT)?;
         let ft_glyph = ft_face.glyph();
-        let _ = ft_glyph.render_glyph(RenderMode::Normal);
+        ft_glyph.render_glyph(RenderMode::Normal)?;
 
         let bitmap = ft_glyph.bitmap();
         let bitmap_width = bitmap.width() as usize;
@@ -53,45 +116,33 @@ pub fn draw_text(
 
         let bitmap_data = bitmap.buffer();
 
-        let surface_row_length = Format::stride_for_width(Format::A8, bitmap_width as u32).unwrap();
+        let surface_row_length = Format::stride_for_width(Format::A8, bitmap_width as u32)?;
         let surface_size = bitmap_height.saturating_mul(surface_row_length as usize);
         let mut surface_data = vec![0; surface_size];
+
         for row_num in 0..bitmap_height {
             let bitmap_row_offset = row_num * bitmap_row_length;
             let surface_row_offset = row_num * surface_row_length as usize;
             for col_num in 0..bitmap_width {
                 let bitmap_px_index = bitmap_row_offset + col_num;
                 let surface_px_index = surface_row_offset + col_num;
-                let value = bitmap_data.get(bitmap_px_index).unwrap();
-                let svalue = surface_data.get_mut(surface_px_index).unwrap();
+                let value = bitmap_data
+                    .get(bitmap_px_index)
+                    .context("Failed to draw a glyph: bitmap index out of bounds")?;
+                let svalue = surface_data
+                    .get_mut(surface_px_index)
+                    .context("Failed to draw a glyph: cairo surface index out of bounds")?;
                 *svalue = *value;
-                //if let Some(svalue) = surface_data.get_mut(surface_px_index) {
-                    //*svalue = *value;
-                //}
             }
         }
 
-        cr_context.set_source_rgb(205.0 / 255.0, 214.0 / 255.0, 244.0 / 255.0);
         let cr_is = ImageSurface::create_for_data(
             surface_data, Format::A8, bitmap_width as i32, bitmap_height as i32, surface_row_length
-        ).unwrap();
-        let device_scale = cr_context.target().device_scale();
-        cr_is.set_device_scale(device_scale.0, device_scale.1);
-        // this value is also in main
-        let target_dpi = 94.0;
-        let _ = cr_context.mask_surface(
-            cr_is,
-            next_pos + ft_glyph.bitmap_left() as f64 * 72.0 / target_dpi,
-            // 100 = row height
-            // co to za magiczne 64.0? - to musi się zgadzać z wartością ustawioną w 
-                // hb_font.set_scale(font_size as i32 * 64, font_size as i32 * 64);
-            20.0 - ((position.y_advance as f64) / 64.0 + ft_glyph.bitmap_top() as f64 * 72.0 / target_dpi)
-        );
-        // patrz wyżej o magiczne 64
-        next_pos += position.x_advance as f64 / 64.0;
-    }
+        )?;
 
-    // Save the image as PNG
-    let _ = cr_context.target().write_to_png(output);
-    Ok(())
+        Ok(RasterizedGlyph {
+            cr_is,
+            x_offset: ft_glyph.bitmap_left() as f64,
+            y_offset: ft_glyph.bitmap_top() as f64,
+        })
 }

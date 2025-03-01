@@ -8,3 +8,4 @@ edition = "2024"
 cairo-rs = { version = "0.20.7", features = ["png"] }
 harfbuzz_rs = "2.0.1"
 freetype-rs = "*"
+anyhow = "1.0.96"
