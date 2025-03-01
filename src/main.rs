@@ -2,12 +2,12 @@ use std::fs::File;
 use std::str::FromStr;
 
 use anyhow::{Context as ErrorContext, Result};
-use clap::Parser;
 use cairo::{Context, Format, ImageSurface};
+use clap::Parser;
 use freetype::Library;
 
-use font_feature_tester::{SCREEN_DPI, DEFAULT_FONT_SIZE};
 use font_feature_tester::{Color, ConfigFile, HBConfig};
+use font_feature_tester::{DEFAULT_FONT_SIZE, SCREEN_DPI};
 use font_feature_tester::{draw_text, get_text};
 
 #[derive(Parser, Debug)]
@@ -56,26 +56,25 @@ fn main() -> Result<()> {
     let font_path = font_configuration.font.file_path.as_str();
     let font_size = font_configuration.font.size.unwrap_or(DEFAULT_FONT_SIZE);
 
-    let bg_color = Color::from_str(args.image_bg_color.as_str())
-        .context("Failed to parse --bg-color")?;
-    let text_color = Color::from_str(args.image_fg_color.as_str())
-        .context("Failed to parse --fg-color")?;
+    let bg_color =
+        Color::from_str(args.image_bg_color.as_str()).context("Failed to parse --bg-color")?;
+    let text_color =
+        Color::from_str(args.image_fg_color.as_str()).context("Failed to parse --fg-color")?;
 
     // Initialize FreeType
     let ft_library = Library::init()?;
-    let ft_face = ft_library.new_face(font_path, 0)
+    let ft_face = ft_library
+        .new_face(font_path, 0)
         .with_context(|| format!("Failed to open {font_path}"))?;
     ft_face.set_char_size(
-        0, (font_size as isize).saturating_mul(64),
-        0, SCREEN_DPI as u32
+        0,
+        (font_size as isize).saturating_mul(64),
+        0,
+        SCREEN_DPI as u32,
     )?;
 
     // Initialize HarfBuzz
-    let hb_config = HBConfig::create(
-        font_path,
-        font_size,
-        &font_configuration.font.features,
-    )?;
+    let hb_config = HBConfig::create(font_path, font_size, &font_configuration.font.features)?;
 
     // Initialize Cairo
     let surface = ImageSurface::create(Format::ARgb32, args.image_width, args.image_height)
@@ -88,12 +87,12 @@ fn main() -> Result<()> {
 
     let line_height = ft_face.size_metrics().map_or_else(
         || f64::from(font_size * 4 / 3),
-        |metrics| f64::from(metrics.y_ppem)
+        |metrics| f64::from(metrics.y_ppem),
     );
 
     let output_path = args.output_path.as_str();
-    let mut file = File::create(output_path)
-        .with_context(|| format!("Could not create {output_path}"))?;
+    let mut file =
+        File::create(output_path).with_context(|| format!("Could not create {output_path}"))?;
 
     draw_text(
         &ft_face,
