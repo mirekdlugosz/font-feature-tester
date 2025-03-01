@@ -1,6 +1,10 @@
 mod constants;
 
 use std::fs::File;
+use std::str::FromStr;
+use std::collections::HashMap;
+
+use hex_color::{HexColor, ParseHexColorError};
 
 use anyhow::{Context as ErrorContext, Result};
 use cairo::{Context, Format, ImageSurface};
@@ -16,8 +20,41 @@ use harfbuzz_rs::{UnicodeBuffer,
     GlyphPosition,
     shape as hb_shape
 };
+use serde::Deserialize;
 
-pub use constants::{HARFBUZZ_SCALING_FACTOR, SCREEN_DPI, BASE_SCREEN_DPI, DEFAULT_FONT_SIZE};
+pub use constants::{HARFBUZZ_SCALING_FACTOR, SCREEN_DPI, BASE_SCREEN_DPI, DEFAULT_FONT_SIZE, DEFAULT_TEXT};
+
+#[derive(Debug, PartialEq)]
+pub struct Color {
+    pub red: f64,
+    pub green: f64,
+    pub blue: f64,
+}
+
+impl FromStr for Color {
+    type Err = ParseHexColorError;
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        let s = s.trim_start_matches('#');
+        let parsed = HexColor::parse(format!("#{}", s).as_str())?;
+        Ok(Color { 
+            red: parsed.r as f64 / 255.0,
+            green: parsed.g as f64 / 255.0,
+            blue: parsed.b as f64 / 255.0,
+        })
+    }
+}
+
+#[derive(Deserialize, Debug)]
+pub struct ConfigFile {
+    pub font: FontConfig,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct FontConfig {
+    pub file_path: String,
+    pub size: Option<u32>,
+    pub features: Option<HashMap<String, u32>>,
+}
 
 pub struct HBConfig<'a> {
     pub hb_font: Owned<HBFont<'a>>,
@@ -44,15 +81,30 @@ struct RasterizedGlyph {
     y_offset: f64,
 }
 
+pub fn hb_new_feature(name: &str, value: u32) -> Feature {
+    let mut tag: [u8; 4] = [0; 4];
+    for (idx, b) in name.bytes().take(4).enumerate() {
+        if let Some(sval) = tag.get_mut(idx) {
+            *sval = b;
+        }
+    }
+    Feature::new(
+        &tag,
+        value,
+        ..
+    )
+}
+
 pub fn draw_text(
     ft_face: FTFace,
+    font_size: u32,
     hb_config: &HBConfig,
     cr_context: Context,
     text: &[String],
     output: &mut File,
 ) -> Result<()> {
     let line_height = ft_face.size_metrics().map_or_else(
-        || (DEFAULT_FONT_SIZE * 4 / 3) as f64,
+        || (font_size * 4 / 3) as f64,
         |metrics| metrics.y_ppem as f64
     );
     let line_advance = line_height * 1.5;
@@ -152,4 +204,23 @@ fn rasterize_glyph(
             x_offset: ft_glyph.bitmap_left() as f64,
             y_offset: ft_glyph.bitmap_top() as f64,
         })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_no_hash() {
+        let result = Color::from_str("1e1e2e");
+        let expected = Color { red: 30.0 / 255.0, green: 30.0 / 255.0, blue: 46.0 / 255.0 };
+        assert_eq!(result, Ok(expected));
+    }
+
+    #[test]
+    fn parse_with_hash() {
+        let result = Color::from_str("#179299");
+        let expected = Color { red: 23.0 / 255.0, green: 146.0 / 255.0, blue: 153.0 / 255.0 };
+        assert_eq!(result, Ok(expected));
+    }
 }
