@@ -1,5 +1,7 @@
 use std::collections::HashMap;
+use std::fmt::Error;
 use std::fs::File;
+use std::path::Path;
 use std::str::FromStr;
 
 use anyhow::{Context as ErrorContext, Result};
@@ -67,7 +69,15 @@ fn main() -> Result<()> {
     let font_configuration: ConfigFile = toml::from_str(&config_content)
         .with_context(|| format!("Failed to parse configuration file {}", &config_path))?;
 
+    let config_path_p = Path::new(&config_path);
+    let config_path_p = config_path_p.canonicalize()?;
+    let config_path_p = config_path_p.parent().ok_or(Error)?;
     let font_path = font_configuration.font.file_path.as_str();
+    let font_path_p = Path::new(&font_path);
+    let font_path_p = config_path_p.join(font_path_p);
+    let font_path_p = font_path_p.canonicalize()?;
+    let font_path = font_path_p.to_str().ok_or(Error)?;
+
     let font_size = font_configuration.font.size.unwrap_or(DEFAULT_FONT_SIZE);
 
     let bg_color =

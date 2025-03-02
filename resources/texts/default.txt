@@ -1,0 +1,10 @@
+The quick brown fox jumps over the lazy dog
+THE QUICK BROWN FOX JUMPS OVER THE LAZY DOG
+let &mut font = include_bytes!("resources/font.OTF");
+1234567890
+tl1I|!ij O0oDB83 2Z b6 S5 S$ ßS
+<>&"^$\/()@+*{}[],.$#%
+-— ×x ÷+ `' 
+== === => <= =< >= </> :: :; ,;
+%% && ~> <~ ~~> <~~ ~~ .. ...
+www !! ?? ||
