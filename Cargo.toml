@@ -4,12 +4,11 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-#wezterm-font = { path = "deps/wezterm-font" }
-cairo-rs = { version = "0.20.7", features = ["png"] }
-harfbuzz_rs = "2.0.1"
-freetype-rs = "*"
 anyhow = "1.0.96"
+cairo-rs = { version = "0.20.7", features = ["png"] }
 clap = { version = "4.5.31", features = ["derive"] }
+freetype-rs = "*"
+harfbuzz_rs = "2.0.1"
 hex_color = "3.0.0"
-toml = "0.8.20"
 serde = { version = "1.0.218", features = ["derive"] }
+toml = "0.8.20"
