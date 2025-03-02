@@ -1,0 +1,18 @@
+# https://www.jetbrains.com/lp/mono/
+# License: SIL Open Font License 1.1
+[font]
+file_path = "../fonts/JetBrainsMono-Regular.ttf"
+size = 15
+
+[font.features]
+cv03 = 1
+cv04 = 1
+cv10 = 1
+cv11 = 1
+cv14 = 1
+cv15 = 0
+cv17 = 1
+cv18 = 1
+cv20 = 1
+zero = 1
+ss19 = 1

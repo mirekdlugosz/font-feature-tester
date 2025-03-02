@@ -1,0 +1,19 @@
+Focus, then press ENTER to edit
+
+Hello world           print("Hello, World!")
+Pangram               The quick brown fox jumps over a lazy dog
+                      THE QUICK BROWN FOX JUMPS OVER A LAZY DOG
+Confusable chars      ,. ;: |! Il1 2Z 5S 38B 0OQD
+Vertical alignment    H=H x=x += -= <= >= ~= *= ^= |= %= &= ->
+ASCII                  !"#$%&'()*+,-./
+                      0123456789:;<=>?
+                      @ABCDEFGHIJKLMNO
+                      PQRSTUVWXYZ[\]^_
+                      `abcdefghijklmno
+                      pqrstuvwxyz{|}~
+Code symbols          ,. "" '' ``
+                      :;| \/ [] () {}
+                      * - + <>
+Distinction test      o0O s5S 9gq z2Z !|l1Iij {([|])} .,;: ``''""
+                      a@#* vVuUwW <>;^°=-~ öÖüÜäÄßµ // -- == __
+                      0123456789 &-+@ for (int i=0; i<=j; ++i) {}

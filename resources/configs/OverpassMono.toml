@@ -1,0 +1,8 @@
+# https://overpassfont.org/
+# License: SIL Open Font License 1.1
+[font]
+file_path = "../fonts/OverpassMono-Regular.otf"
+size = 15
+
+[font.features]
+zero = 1

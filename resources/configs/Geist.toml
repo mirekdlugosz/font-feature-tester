@@ -1,0 +1,11 @@
+# https://vercel.com/font
+# License: SIL Open Font License 1.1
+[font]
+file_path = "../fonts/GeistMono-Regular.otf"
+size = 15
+
+[font.features]
+ss01 = 1
+ss03 = 1
+ss07 = 1
+zero = 1

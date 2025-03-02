@@ -1,0 +1,15 @@
+# https://commitmono.com/
+# License: SIL Open Font License 1.1
+[font]
+file_path = "../fonts/CommitMono-Regular.otf"
+size = 15
+
+[font.features]
+ss01 = 0
+ss02 = 0
+cv01 = 0
+cv02 = 1
+cv04 = 0
+cv05 = 1
+cv06 = 1
+cv10 = 0

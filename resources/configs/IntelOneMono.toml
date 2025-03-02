@@ -1,0 +1,10 @@
+# https://www.intel.com/content/www/us/en/company-overview/one-monospace-font.html
+# License: SIL Open Font License 1.1
+[font]
+file_path = "../fonts/IntelOneMono-Medium.otf"
+size = 15
+
+[font.features]
+calt = 1
+ss01 = 0
+ss12 = 0

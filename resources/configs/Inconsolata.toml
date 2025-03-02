@@ -1,0 +1,11 @@
+# http://www.levien.com/type/myfonts/inconsolata.html
+# License: SIL Open Font License 1.1
+[font]
+file_path = "../fonts/Inconsolata-Regular.ttf"
+size = 15
+
+[font.features]
+ss01 = 1
+ss03 = 0
+zero = 0
+dlig = 0

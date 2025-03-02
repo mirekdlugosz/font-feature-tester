@@ -1,0 +1,14 @@
+# https://adobe-fonts.github.io/source-code-pro/
+# License: SIL Open Font License 1.1
+[font]
+file_path = "../fonts/SourceCodePro-Regular.otf"
+size = 15
+
+[font.features]
+ss02 = 0
+ss03 = 1
+ss04 = 0
+ss06 = 0
+ss07 = 1
+cv12 = 1
+onum = 0
