@@ -2,7 +2,7 @@
 
 See how text looks when written using specific font with specific OpenType features. Provides a playground to check different fonts and setups before modifying your terminal or editor.
 
-<!-- blog post link goes here -->
+See [my blog post](https://mirekdlugosz.com/blog/2025/customizing-fonts-look-with-opentype-features/) for context why this tool exists, and links to some other useful tools.
 
 ## Installation
 
