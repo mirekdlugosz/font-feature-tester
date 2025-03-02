@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::fs::File;
 use std::str::FromStr;
 
@@ -5,10 +6,23 @@ use anyhow::{Context as ErrorContext, Result};
 use cairo::{Context, Format, ImageSurface};
 use clap::Parser;
 use freetype::Library;
+use serde::Deserialize;
 
-use font_feature_tester::{Color, ConfigFile, HBConfig};
+use font_feature_tester::{Color, HBConfig};
 use font_feature_tester::{DEFAULT_FONT_SIZE, SCREEN_DPI};
 use font_feature_tester::{draw_text, get_text};
+
+#[derive(Deserialize, Debug)]
+struct ConfigFile {
+    pub font: FontConfig,
+}
+
+#[derive(Deserialize, Debug)]
+struct FontConfig {
+    pub file_path: String,
+    pub size: Option<u32>,
+    pub features: Option<HashMap<String, u32>>,
+}
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -78,7 +92,7 @@ fn main() -> Result<()> {
 
     // Initialize Cairo
     let surface = ImageSurface::create(Format::ARgb32, args.image_width, args.image_height)
-        .context("Could not create cario surface")?;
+        .context("Could not create cairo surface")?;
     let cr_context = Context::new(&surface)?;
 
     cr_context.set_source_rgb(bg_color.red, bg_color.green, bg_color.blue);

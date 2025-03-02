@@ -1,111 +1,19 @@
-mod constants;
-
-use std::collections::HashMap;
 use std::fs::File;
-use std::str::FromStr;
-
-use hex_color::{HexColor, ParseHexColorError};
 
 use anyhow::{Context as ErrorContext, Result};
 use cairo::{Context, Format, ImageSurface};
 use freetype::{Face as FTFace, RenderMode, face::LoadFlag};
-use harfbuzz_rs::{
-    Direction, Face as HBFace, Feature, Font as HBFont, GlyphBuffer, GlyphInfo, GlyphPosition,
-    Language, Owned, Tag, UnicodeBuffer, shape as hb_shape,
-};
-use serde::Deserialize;
+use harfbuzz_rs::{GlyphInfo, GlyphPosition};
 
-pub use constants::{
-    BASE_SCREEN_DPI, DEFAULT_FONT_SIZE, DEFAULT_TEXT, HARFBUZZ_SCALING_FACTOR, SCREEN_DPI,
-};
+use constants::{BASE_SCREEN_DPI, DEFAULT_TEXT, HARFBUZZ_SCALING_FACTOR};
 
-#[derive(Debug, PartialEq)]
-pub struct Color {
-    pub red: f64,
-    pub green: f64,
-    pub blue: f64,
-}
+pub use crate::colors::Color;
+pub use crate::hb::HBConfig;
+pub use constants::{DEFAULT_FONT_SIZE, SCREEN_DPI};
 
-impl FromStr for Color {
-    type Err = ParseHexColorError;
-    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
-        let s = s.trim_start_matches('#');
-        let parsed = HexColor::parse(format!("#{s}").as_str())?;
-        Ok(Color {
-            red: f64::from(parsed.r) / 255.0,
-            green: f64::from(parsed.g) / 255.0,
-            blue: f64::from(parsed.b) / 255.0,
-        })
-    }
-}
-
-#[derive(Deserialize, Debug)]
-pub struct ConfigFile {
-    pub font: FontConfig,
-}
-
-#[derive(Deserialize, Debug)]
-pub struct FontConfig {
-    pub file_path: String,
-    pub size: Option<u32>,
-    pub features: Option<HashMap<String, u32>>,
-}
-
-pub struct HBConfig<'a> {
-    pub hb_font: Owned<HBFont<'a>>,
-    pub font_features: Vec<Feature>,
-    pub direction: Direction,
-    pub script: Tag,
-    pub language: Language,
-}
-
-impl HBConfig<'_> {
-    pub fn create(
-        font_path: &str,
-        font_size: u32,
-        feature_definitions: &Option<HashMap<String, u32>>,
-    ) -> Result<Self> {
-        let hb_face = HBFace::from_file(font_path, 0)
-            .with_context(|| format!("Failed to open {font_path}"))?;
-        let mut hb_font = HBFont::new(hb_face);
-        hb_font.set_scale(
-            font_size.saturating_mul(HARFBUZZ_SCALING_FACTOR as u32) as i32,
-            font_size.saturating_mul(HARFBUZZ_SCALING_FACTOR as u32) as i32,
-        );
-
-        let features: Vec<Feature> = feature_definitions
-            .as_ref()
-            .map(|feats| feats.iter().map(|(k, v)| hb_new_feature(k, *v)).collect())
-            .unwrap_or_default();
-
-        Ok(HBConfig {
-            hb_font,
-            font_features: features,
-            direction: Direction::Ltr,
-            script: b"Latn".into(),
-            language: Language::default(),
-        })
-    }
-
-    fn shape(hb_config: &Self, text: &str) -> GlyphBuffer {
-        let mut hb_buffer = UnicodeBuffer::new();
-        hb_buffer = hb_buffer.set_direction(hb_config.direction);
-        hb_buffer = hb_buffer.set_script(hb_config.script);
-        hb_buffer = hb_buffer.set_language(hb_config.language);
-        hb_buffer = hb_buffer.add_str(text);
-        hb_shape(&hb_config.hb_font, hb_buffer, &hb_config.font_features)
-    }
-}
-
-#[must_use]
-pub fn hb_new_feature(name: &str, value: u32) -> Feature {
-    let mut tag = [0; 4];
-    let bytes: Vec<u8> = name.bytes().take(4).collect();
-    let bytes_len = bytes.len();
-    tag[..bytes_len].copy_from_slice(&bytes);
-
-    Feature::new(&tag, value, ..)
-}
+mod colors;
+mod constants;
+mod hb;
 
 struct RasterizedGlyph {
     cr_is: ImageSurface,
@@ -142,8 +50,8 @@ pub fn draw_text(
             let shaped_text = HBConfig::shape(hb_config, line.as_str());
             let line_offset = text_row as f64 * line_advance + line_advance;
             draw_single_line(
-                &ft_face,
-                &cr_context,
+                ft_face,
+                cr_context,
                 shaped_text.get_glyph_infos(),
                 shaped_text.get_glyph_positions(),
                 line_offset,
@@ -229,55 +137,4 @@ fn rasterize_glyph(ft_face: &FTFace, codepoint: u32) -> Result<RasterizedGlyph> 
         x_offset: f64::from(ft_glyph.bitmap_left()),
         y_offset: f64::from(ft_glyph.bitmap_top()),
     })
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn parse_no_hash() {
-        let result = Color::from_str("1e1e2e");
-        let expected = Color {
-            red: 30.0 / 255.0,
-            green: 30.0 / 255.0,
-            blue: 46.0 / 255.0,
-        };
-        assert_eq!(result, Ok(expected));
-    }
-
-    #[test]
-    fn parse_with_hash() {
-        let result = Color::from_str("#179299");
-        let expected = Color {
-            red: 23.0 / 255.0,
-            green: 146.0 / 255.0,
-            blue: 153.0 / 255.0,
-        };
-        assert_eq!(result, Ok(expected));
-    }
-
-    #[test]
-    fn feature_from_str() {
-        let result = hb_new_feature("zero", 1);
-        let expected = Feature::new(b"zero", 1, ..);
-        assert_eq!(result.tag(), expected.tag());
-        assert_eq!(result.value(), expected.value());
-    }
-
-    #[test]
-    fn feature_from_short_str() {
-        let result = hb_new_feature("ze", 1);
-        let expected = Feature::new(b"ze\0\0", 1, ..);
-        assert_eq!(result.tag(), expected.tag());
-        assert_eq!(result.value(), expected.value());
-    }
-
-    #[test]
-    fn feature_from_long_str() {
-        let result = hb_new_feature("zerozero", 1);
-        let expected = Feature::new(b"zero", 1, ..);
-        assert_eq!(result.tag(), expected.tag());
-        assert_eq!(result.value(), expected.value());
-    }
 }
